@@ -1,32 +1,19 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18 as build-stage
+# Stage 1 - the build process
+FROM node:18.12 as builder
 
-# Set the working directory in the container
 WORKDIR /app
-
-# Copy package.json and package-lock.json to the container
-COPY package*.json ./
-
-# Install Nuxt.js dependencies
+COPY package.json .
+COPY yarn.lock .
 RUN yarn install
-
-# Copy the rest of the application files to the container
 COPY . .
+RUN yarn build
 
-# Build the Nuxt.js application
-RUN yarn run build
-
-# Copy the custom Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Use an official Nginx image as a parent image for the production stage
-FROM nginx:alpine
-
-# Copy the built Nuxt.js application from the build-stage
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# Expose port 80 for Nginx
+FROM nginx:1.25.2
+WORKDIR /usr/share/nginx/html
+# COPY default.conf /etc/nginx/conf.d/default.conf
+# COPY --from=builder /app/build /usr/share/nginx/html
+RUN rm -rf ./*
+COPY default.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
-
-# Start Nginx when the container runs
 CMD ["nginx", "-g", "daemon off;"]
